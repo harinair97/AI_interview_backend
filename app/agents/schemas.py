@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Difficulty(str, Enum):
@@ -61,6 +61,57 @@ class CompetencyCoverage(BaseModel):
     importance: int = Field(default=3, ge=1, le=5)
     coverage: CoverageStatus = CoverageStatus.NOT_STARTED
     average_score: float | None = Field(default=None, ge=1, le=5)
+
+
+class PlannerInput(BaseModel):
+    goal: InterviewGoal
+    job_description: str | None = Field(default=None, max_length=20_000)
+    candidate_summary: str | None = Field(default=None, max_length=10_000)
+    requested_competencies: list[str] = Field(default_factory=list, max_length=12)
+
+    @model_validator(mode="after")
+    def normalize_competencies(self) -> "PlannerInput":
+        normalized = list(
+            dict.fromkeys(item.strip() for item in self.requested_competencies if item.strip())
+        )
+        self.requested_competencies = normalized
+        return self
+
+
+class PlannedQuestion(BaseModel):
+    id: str = Field(min_length=1)
+    topic: str = Field(min_length=1)
+    competency: str = Field(min_length=1)
+    objective: str = Field(min_length=1)
+    difficulty: Difficulty
+    required: bool = True
+
+
+class InterviewSection(BaseModel):
+    name: str = Field(min_length=1)
+    order: int = Field(ge=0)
+    questions: list[PlannedQuestion] = Field(min_length=1)
+
+
+class InterviewPlan(BaseModel):
+    goal: InterviewGoal
+    competencies: list[CompetencyCoverage] = Field(min_length=1)
+    sections: list[InterviewSection] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_plan(self) -> "InterviewPlan":
+        ordered_sections = sorted(self.sections, key=lambda section: section.order)
+        if ordered_sections != self.sections:
+            raise ValueError("Interview sections must be ordered by their order field.")
+
+        questions = [question for section in self.sections for question in section.questions]
+        if len(questions) != self.goal.planned_question_count:
+            raise ValueError("Plan question count must match the interview goal.")
+
+        question_ids = [question.id for question in questions]
+        if len(question_ids) != len(set(question_ids)):
+            raise ValueError("Planned question IDs must be unique.")
+        return self
 
 
 class EvaluationResult(BaseModel):

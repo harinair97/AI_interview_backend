@@ -41,6 +41,32 @@ When a recommendation is unsafe or uncertain, `fallback_policy.py` chooses the
 next safe action from evaluator guidance and the remaining interview plan. These
 rules do not call an LLM and can be tested deterministically.
 
+## Stage 3: configurable interview planning
+
+Create an interview with a role, difficulty, question count, and optional
+competency list:
+
+```powershell
+$body = @{
+    target_role = "Data Engineer"
+    difficulty = "HARD"
+    planned_question_count = 6
+    competencies = @("SQL", "data modeling", "distributed systems")
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+    -Method Post `
+    -Uri http://127.0.0.1:8000/api/v1/interviews `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+The Planner Agent produces ordered sections and question objectives. It does not
+write candidate-facing dialogue. The graph derives its available topics,
+coverage records, section order, and counters from this validated plan. The MVP
+planner is deterministic; job descriptions and candidate summaries are already
+accepted by the API contract and will be used by the later LLM-backed planner.
+
 ## Architectural rule
 
 ```text

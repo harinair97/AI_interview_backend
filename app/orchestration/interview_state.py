@@ -5,8 +5,10 @@ from app.agents.schemas import (
     Difficulty,
     EvaluationResult,
     InterviewGoal,
+    InterviewPlan,
     InterviewStatus,
     OrchestratorDecision,
+    PlannerInput,
 )
 
 
@@ -14,6 +16,8 @@ class InterviewState(TypedDict, total=False):
     """Shared LangGraph state; nodes return partial updates to this structure."""
 
     interview_id: str
+    planner_input: PlannerInput
+    plan: InterviewPlan
     goal: InterviewGoal
     status: InterviewStatus
     current_section: str
