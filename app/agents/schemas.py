@@ -9,6 +9,26 @@ class Difficulty(str, Enum):
     HARD = "HARD"
 
 
+class InterviewStatus(str, Enum):
+    PLANNING = "PLANNING"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+
+class CoverageStatus(str, Enum):
+    NOT_STARTED = "NOT_STARTED"
+    PARTIAL = "PARTIAL"
+    SUFFICIENT = "SUFFICIENT"
+
+
+class EvaluationRecommendation(str, Enum):
+    FOLLOW_UP = "FOLLOW_UP"
+    CLARIFY = "CLARIFY"
+    CHALLENGE = "CHALLENGE"
+    MOVE_ON = "MOVE_ON"
+
+
 class OrchestratorAction(str, Enum):
     ASK_INITIAL_QUESTION = "ASK_INITIAL_QUESTION"
     ASK_FOLLOW_UP = "ASK_FOLLOW_UP"
@@ -35,3 +55,18 @@ class InterviewGoal(BaseModel):
     difficulty: Difficulty = Difficulty.MEDIUM
     planned_question_count: int = Field(default=8, ge=1, le=30)
 
+
+class CompetencyCoverage(BaseModel):
+    name: str = Field(min_length=1)
+    importance: int = Field(default=3, ge=1, le=5)
+    coverage: CoverageStatus = CoverageStatus.NOT_STARTED
+    average_score: float | None = Field(default=None, ge=1, le=5)
+
+
+class EvaluationResult(BaseModel):
+    correctness: int = Field(ge=1, le=5)
+    depth: int = Field(ge=1, le=5)
+    communication: int = Field(ge=1, le=5)
+    missing_concepts: list[str] = Field(default_factory=list)
+    recommended_action: EvaluationRecommendation
+    follow_up_goal: str | None = None

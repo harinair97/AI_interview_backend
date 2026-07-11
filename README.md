@@ -25,9 +25,24 @@ The demo endpoint invokes a credential-free LangGraph. It exists to verify the
 workflow boundary before model providers, persistence, and the four production
 agents are introduced.
 
+## Stage 2: deterministic safety policy
+
+Every orchestrator recommendation now passes through a pure Python validator.
+The validator enforces:
+
+- maximum follow-up and clarification counts;
+- required questions before changing sections;
+- minimum coverage before ending the interview;
+- an allow-list of available topics;
+- a minimum orchestrator confidence;
+- at least two consistent signals before changing difficulty.
+
+When a recommendation is unsafe or uncertain, `fallback_policy.py` chooses the
+next safe action from evaluator guidance and the remaining interview plan. These
+rules do not call an LLM and can be tested deterministically.
+
 ## Architectural rule
 
 ```text
 AI recommends -> Python validates -> Python executes -> database persists
 ```
-
