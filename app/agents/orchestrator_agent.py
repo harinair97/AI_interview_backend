@@ -1,15 +1,51 @@
+import json
+import logging
+
+from app.agents.openai_client import StructuredOutputClient, create_openai_client
 from app.agents.schemas import (
     EvaluationRecommendation,
     OrchestratorAction,
     OrchestratorDecision,
 )
+from app.config import get_settings
+from app.orchestration.context_builder import build_orchestrator_context
 from app.orchestration.interview_state import InterviewState
+from app.prompts import load_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class OrchestratorAgent:
-    """Map evaluation evidence to a recommendation; Python still validates it."""
+    """Structured LLM director with deterministic recommendation fallback."""
+
+    def __init__(
+        self,
+        client: StructuredOutputClient | None = None,
+        model: str | None = None,
+    ) -> None:
+        self.client = client
+        self.model = model or get_settings().openai_orchestrator_model
 
     def invoke(self, state: InterviewState) -> OrchestratorDecision:
+        if self.client is not None:
+            try:
+                context = build_orchestrator_context(state)
+                return self.client.parse(
+                    model=self.model,
+                    instructions=load_prompt("orchestrator.txt"),
+                    input_text=json.dumps(context),
+                    response_model=OrchestratorDecision,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Orchestrator model failed; using deterministic fallback. error_type=%s",
+                    type(exc).__name__,
+                )
+
+        return self._deterministic_decision(state)
+
+    @staticmethod
+    def _deterministic_decision(state: InterviewState) -> OrchestratorDecision:
         evaluation = state["evaluation"]
         current_question = _question_at(state, state["question_index"])
 
@@ -61,4 +97,4 @@ def _question_at(state: InterviewState, index: int):
     return _all_questions(state)[index]
 
 
-orchestrator_agent = OrchestratorAgent()
+orchestrator_agent = OrchestratorAgent(client=create_openai_client())

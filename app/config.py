@@ -13,8 +13,13 @@ class Settings(BaseSettings):
     api_prefix: str = "/api/v1"
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:55432/interviews"
     llm_provider: str = "openai"
-    llm_model: str = ""
-    llm_api_key: str = ""
+    openai_api_key: str = ""
+    openai_planner_model: str = "gpt-5.4-mini"
+    openai_evaluation_model: str = "gpt-5.4-mini"
+    openai_orchestrator_model: str = "gpt-5.4-mini"
+    openai_interview_model: str = "gpt-5.4-mini"
+    openai_timeout_seconds: float = 30.0
+    openai_max_retries: int = 2
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

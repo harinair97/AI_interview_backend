@@ -40,3 +40,4 @@ class InterviewState(TypedDict, total=False):
     decision: OrchestratorDecision
     interviewer_message: str
     events: list[str]
+    recent_decisions: list[str]

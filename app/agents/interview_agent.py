@@ -1,12 +1,55 @@
-from app.agents.schemas import OrchestratorAction
+import json
+import logging
+
+from app.agents.openai_client import StructuredOutputClient, create_openai_client
+from app.agents.schemas import InterviewerOutput, OrchestratorAction
+from app.config import get_settings
+from app.orchestration.context_builder import build_interviewer_context
 from app.orchestration.interview_state import InterviewState
+from app.prompts import load_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class InterviewAgent:
-    """Render approved instructions into safe candidate-facing language."""
+    """Generate candidate-facing language with a deterministic safety fallback."""
+
+    def __init__(
+        self,
+        client: StructuredOutputClient | None = None,
+        model: str | None = None,
+    ) -> None:
+        self.client = client
+        self.model = model or get_settings().openai_interview_model
 
     def invoke(self, state: InterviewState) -> str:
+        if self.client is not None:
+            try:
+                output = self.client.parse(
+                    model=self.model,
+                    instructions=load_prompt("interviewer.txt"),
+                    input_text=json.dumps(build_interviewer_context(state)),
+                    response_model=InterviewerOutput,
+                )
+                return output.message
+            except Exception as exc:
+                logger.warning(
+                    "Interview model failed; using deterministic fallback. error_type=%s",
+                    type(exc).__name__,
+                )
+
+        return self._deterministic_message(state)
+
+    @staticmethod
+    def _deterministic_message(state: InterviewState) -> str:
         decision = state["decision"]
+
+        if decision.action is OrchestratorAction.ASK_INITIAL_QUESTION:
+            role = state["goal"].target_role
+            return (
+                "Welcome. To get started, could you briefly describe the experience "
+                f"that best prepares you for a {role} role?"
+            )
 
         if decision.action is OrchestratorAction.ASK_CLARIFICATION:
             return "Could you make that answer more specific and explain your reasoning?"
@@ -40,4 +83,4 @@ def _current_question(state: InterviewState):
     return questions[state["question_index"]]
 
 
-interview_agent = InterviewAgent()
+interview_agent = InterviewAgent(client=create_openai_client())

@@ -1,11 +1,16 @@
+import os
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.database import Base, get_session
-from app.main import app
-from app.models import InterviewEvent, InterviewRecord  # noqa: F401
+# Prevent local .env credentials from causing paid network calls during tests.
+os.environ["OPENAI_API_KEY"] = ""
+
+from app.database import Base, get_session  # noqa: E402
+from app.main import app  # noqa: E402
+from app.models import InterviewEvent, InterviewRecord  # noqa: E402, F401
 
 test_engine = create_engine(
     "sqlite+pysqlite:///:memory:",

@@ -93,6 +93,11 @@ class InterviewSection(BaseModel):
     questions: list[PlannedQuestion] = Field(min_length=1)
 
 
+class PlannerOutput(BaseModel):
+    competencies: list[CompetencyCoverage] = Field(min_length=1, max_length=12)
+    sections: list[InterviewSection] = Field(min_length=1, max_length=8)
+
+
 class InterviewPlan(BaseModel):
     goal: InterviewGoal
     competencies: list[CompetencyCoverage] = Field(min_length=1)
@@ -100,9 +105,15 @@ class InterviewPlan(BaseModel):
 
     @model_validator(mode="after")
     def validate_plan(self) -> "InterviewPlan":
+        section_names = [section.name.casefold() for section in self.sections]
+        if len(section_names) != len(set(section_names)):
+            raise ValueError("Interview section names must be unique.")
+
         ordered_sections = sorted(self.sections, key=lambda section: section.order)
         if ordered_sections != self.sections:
             raise ValueError("Interview sections must be ordered by their order field.")
+        if [section.order for section in self.sections] != list(range(len(self.sections))):
+            raise ValueError("Interview section order values must be contiguous from zero.")
 
         questions = [question for section in self.sections for question in section.questions]
         if len(questions) != self.goal.planned_question_count:
@@ -111,6 +122,20 @@ class InterviewPlan(BaseModel):
         question_ids = [question.id for question in questions]
         if len(question_ids) != len(set(question_ids)):
             raise ValueError("Planned question IDs must be unique.")
+
+        competency_name_list = [competency.name.casefold() for competency in self.competencies]
+        if len(competency_name_list) != len(set(competency_name_list)):
+            raise ValueError("Interview competency names must be unique.")
+        if any(
+            competency.coverage is not CoverageStatus.NOT_STARTED
+            or competency.average_score is not None
+            for competency in self.competencies
+        ):
+            raise ValueError("New interview competency coverage must be unscored and not started.")
+
+        competency_names = set(competency_name_list)
+        if any(question.competency.casefold() not in competency_names for question in questions):
+            raise ValueError("Every question must reference a declared competency.")
         return self
 
 
@@ -134,3 +159,7 @@ class SubmitAnswerResult(BaseModel):
     evaluation: EvaluationResult
     decision: OrchestratorDecision
     interviewer_message: str
+
+
+class InterviewerOutput(BaseModel):
+    message: str = Field(min_length=1, max_length=2_000)

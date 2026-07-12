@@ -2,6 +2,7 @@ from uuid import uuid4
 
 from langgraph.graph import END, START, StateGraph
 
+from app.agents.interview_agent import interview_agent
 from app.agents.planner_agent import planner_agent
 from app.agents.schemas import (
     InterviewStatus,
@@ -47,6 +48,7 @@ def initialize_interview(state: InterviewState) -> dict:
         "difficulty_signal_streak": 0,
         "minimum_orchestrator_confidence": 0.6,
         "events": ["INTERVIEW_INITIALIZED"],
+        "recent_decisions": [OrchestratorAction.ASK_INITIAL_QUESTION.value],
     }
 
 
@@ -67,14 +69,10 @@ def choose_opening_action(state: InterviewState) -> dict:
 
 
 def render_opening_message(state: InterviewState) -> dict:
-    """Credential-free placeholder for the future interview agent node."""
+    """Render the approved opening instruction for the candidate."""
 
-    role = state["goal"].target_role
     return {
-        "interviewer_message": (
-            f"Welcome. To get started, could you briefly describe the experience "
-            f"that best prepares you for a {role} role?"
-        ),
+        "interviewer_message": interview_agent.invoke(state),
         "events": [*state["events"], "OPENING_QUESTION_CREATED"],
     }
 

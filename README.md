@@ -128,6 +128,53 @@ and move-on paths deterministically. Its scores are workflow scaffolding, not a
 real assessment of technical correctness; structured LLM evaluation is the next
 replacement point.
 
+## Stage 6: OpenAI structured agents
+
+Copy `.env.example` to `.env` and set your key locally:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+```env
+OPENAI_API_KEY=your-api-key
+OPENAI_PLANNER_MODEL=gpt-5.4-mini
+OPENAI_EVALUATION_MODEL=gpt-5.4-mini
+OPENAI_ORCHESTRATOR_MODEL=gpt-5.4-mini
+OPENAI_INTERVIEW_MODEL=gpt-5.4-mini
+OPENAI_TIMEOUT_SECONDS=30
+OPENAI_MAX_RETRIES=2
+```
+
+Never commit `.env`; it is excluded by `.gitignore`. Restart FastAPI after
+changing environment variables because the agent clients are created when the
+application modules load.
+
+The Planner, Evaluation, Orchestrator, and Interview Agents use the OpenAI
+Responses API and parse responses directly into `PlannerOutput`,
+`EvaluationResult`, `OrchestratorDecision`, and `InterviewerOutput`. The
+orchestrator receives compact decision context rather than the full plan,
+candidate documents, or transcript. Every orchestrator result still passes
+through the deterministic Python policy validator.
+
+The Interview Agent phrases both the opening question and later messages. Its
+candidate-safe context excludes evaluation scores, missing-concept lists,
+orchestrator reasons, and confidence. It receives only the approved instruction,
+current planned question, target role, section, and relevant candidate answer.
+
+The Planner Agent runs once when an interview is created. It uses the role, job
+description, candidate summary, requested competencies, difficulty, and question
+count to design role-specific section names and assessment objectives. Python
+attaches the original goal and rejects plans with the wrong question count,
+unordered or duplicate sections, duplicate question IDs, undeclared
+competencies, or missing requested competencies. Rejected or failed model plans
+use the deterministic planner fallback.
+
+If the key is absent, a request times out, the provider fails, or structured
+output cannot be parsed, the affected agent logs the error type without the
+candidate answer and uses its deterministic implementation. SDK retries and
+timeouts are controlled by the environment settings above.
+
 ## Architectural rule
 
 ```text

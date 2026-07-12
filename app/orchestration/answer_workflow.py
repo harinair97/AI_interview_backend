@@ -38,6 +38,11 @@ def validate_next_action(state: InterviewState) -> dict:
     return {"decision": validate_orchestrator_action(state["decision"], state)}
 
 
+def record_decision_history(state: InterviewState) -> dict:
+    history = state.get("recent_decisions", [])
+    return {"recent_decisions": [*history[-4:], state["decision"].action.value]}
+
+
 def apply_state_transition(state: InterviewState) -> dict:
     action = state["decision"].action
 
@@ -112,13 +117,15 @@ def build_answer_graph():
     builder.add_node("evaluate_answer", evaluate_answer)
     builder.add_node("recommend_next_action", recommend_next_action)
     builder.add_node("validate_next_action", validate_next_action)
+    builder.add_node("record_decision_history", record_decision_history)
     builder.add_node("apply_state_transition", apply_state_transition)
     builder.add_node("render_interviewer_message", render_interviewer_message)
     builder.add_edge(START, "record_candidate_answer")
     builder.add_edge("record_candidate_answer", "evaluate_answer")
     builder.add_edge("evaluate_answer", "recommend_next_action")
     builder.add_edge("recommend_next_action", "validate_next_action")
-    builder.add_edge("validate_next_action", "apply_state_transition")
+    builder.add_edge("validate_next_action", "record_decision_history")
+    builder.add_edge("record_decision_history", "apply_state_transition")
     builder.add_edge("apply_state_transition", "render_interviewer_message")
     builder.add_edge("render_interviewer_message", END)
     return builder.compile()

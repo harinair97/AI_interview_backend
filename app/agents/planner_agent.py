@@ -1,12 +1,20 @@
+import json
+import logging
 from collections import defaultdict
 
+from app.agents.openai_client import StructuredOutputClient, create_openai_client
 from app.agents.schemas import (
     CompetencyCoverage,
     InterviewPlan,
     InterviewSection,
     PlannedQuestion,
     PlannerInput,
+    PlannerOutput,
 )
+from app.config import get_settings
+from app.prompts import load_prompt
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_COMPETENCIES = [
     "role fundamentals",
@@ -17,9 +25,60 @@ DEFAULT_COMPETENCIES = [
 
 
 class PlannerAgent:
-    """Build a valid MVP plan without depending on an LLM provider."""
+    """Generate a role-specific plan with a deterministic safety fallback."""
+
+    def __init__(
+        self,
+        client: StructuredOutputClient | None = None,
+        model: str | None = None,
+    ) -> None:
+        self.client = client
+        self.model = model or get_settings().openai_planner_model
 
     def invoke(self, agent_input: PlannerInput) -> InterviewPlan:
+        if self.client is not None:
+            try:
+                output = self.client.parse(
+                    model=self.model,
+                    instructions=load_prompt("planner.txt"),
+                    input_text=json.dumps(agent_input.model_dump(mode="json")),
+                    response_model=PlannerOutput,
+                )
+                plan = InterviewPlan(
+                    goal=agent_input.goal,
+                    competencies=output.competencies,
+                    sections=output.sections,
+                )
+                self._validate_requested_competencies(plan, agent_input)
+                return plan
+            except Exception as exc:
+                logger.warning(
+                    "Planner model failed or returned an invalid plan; using deterministic "
+                    "fallback. "
+                    "error_type=%s",
+                    type(exc).__name__,
+                )
+
+        return self._deterministic_plan(agent_input)
+
+    @staticmethod
+    def _validate_requested_competencies(
+        plan: InterviewPlan,
+        agent_input: PlannerInput,
+    ) -> None:
+        if not agent_input.requested_competencies:
+            return
+        planned = {competency.name.casefold() for competency in plan.competencies}
+        missing = [
+            competency
+            for competency in agent_input.requested_competencies
+            if competency.casefold() not in planned
+        ]
+        if missing:
+            raise ValueError("The generated plan omitted requested competencies.")
+
+    @staticmethod
+    def _deterministic_plan(agent_input: PlannerInput) -> InterviewPlan:
         competencies = agent_input.requested_competencies or DEFAULT_COMPETENCIES
         question_count = agent_input.goal.planned_question_count
         section_questions: dict[str, list[PlannedQuestion]] = defaultdict(list)
@@ -63,7 +122,7 @@ class PlannerAgent:
                     id="behavioral-1",
                     topic="ownership and collaboration",
                     competency=behavioral_competency,
-                    objective="Collect evidence of ownership, collaboration, and clear communication.",
+                    objective="Collect evidence of ownership, collaboration, and communication.",
                     difficulty=agent_input.goal.difficulty,
                 )
             )
@@ -84,4 +143,4 @@ class PlannerAgent:
         )
 
 
-planner_agent = PlannerAgent()
+planner_agent = PlannerAgent(client=create_openai_client())
