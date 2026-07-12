@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_env: Literal["development", "test", "production"] = "development"
     app_debug: bool = False
     api_prefix: str = "/api/v1"
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/interviews"
+    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:55432/interviews"
     llm_provider: str = "openai"
     llm_model: str = ""
     llm_api_key: str = ""
@@ -22,4 +22,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

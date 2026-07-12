@@ -34,6 +34,16 @@ def test_create_interview_uses_request_goal_and_competencies() -> None:
     ]
     assert "Data Engineer" in body["interviewer_message"]
 
+    persisted = client.get(f"/api/v1/interviews/{body['interview_id']}")
+    assert persisted.status_code == 200
+    snapshot = persisted.json()
+    assert snapshot["target_role"] == "Data Engineer"
+    assert snapshot["runtime_state"]["decision"]["action"] == "ASK_INITIAL_QUESTION"
+    assert [event["event_type"] for event in snapshot["events"]] == [
+        "INTERVIEW_INITIALIZED",
+        "OPENING_QUESTION_CREATED",
+    ]
+
 
 def test_create_interview_rejects_invalid_question_count() -> None:
     response = client.post(
@@ -42,3 +52,9 @@ def test_create_interview_rejects_invalid_question_count() -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_get_missing_interview_returns_404() -> None:
+    response = client.get("/api/v1/interviews/does-not-exist")
+
+    assert response.status_code == 404

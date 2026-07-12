@@ -121,3 +121,16 @@ class EvaluationResult(BaseModel):
     missing_concepts: list[str] = Field(default_factory=list)
     recommended_action: EvaluationRecommendation
     follow_up_goal: str | None = None
+
+
+class EvaluationInput(BaseModel):
+    question: PlannedQuestion
+    candidate_answer: str = Field(min_length=1, max_length=20_000)
+
+
+class SubmitAnswerResult(BaseModel):
+    interview_id: str
+    status: InterviewStatus
+    evaluation: EvaluationResult
+    decision: OrchestratorDecision
+    interviewer_message: str
